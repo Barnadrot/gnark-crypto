@@ -241,12 +241,13 @@ func innerDIFWithTwiddlesGeneric(a []koalabear.Element, twiddles []koalabear.Ele
 		koalabear.Butterfly(&a[0], &a[m])
 		start++
 	}
+	// Fuse butterfly + twiddle multiply into one pass for small m.
+	// Avoids Vector conversion, (*Vector).Mul dispatch, and AVX-512
+	// check overhead (which always falls back to generic for m < 16).
 	for i := start; i < end; i++ {
 		koalabear.Butterfly(&a[i], &a[i+m])
+		a[i+m].Mul(&a[i+m], &twiddles[i])
 	}
-	v1 := koalabear.Vector(a[start+m : end+m])
-	v2 := koalabear.Vector(twiddles[start:end])
-	v1.Mul(v1, v2)
 }
 
 func innerDIFWithoutTwiddles(a []koalabear.Element, at, w koalabear.Element, start, end, m int) {
