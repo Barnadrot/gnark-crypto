@@ -56,12 +56,6 @@ type Domain struct {
 	cosetTableInv []koalabear.Element
 	// cosetTableInvBitReversed stores the inverse coset table in bit-reversed order
 	cosetTableInvBitReversed []koalabear.Element
-
-	// cosetTableInvScaled = cosetTableInv * CardinalityInv (natural order)
-	// Used to merge the two FFTInverse coset passes into one.
-	cosetTableInvScaled []koalabear.Element
-	// cosetTableInvScaledBitReversed = cosetTableInvBitReversed * CardinalityInv
-	cosetTableInvScaledBitReversed []koalabear.Element
 }
 
 // GeneratorFullMultiplicativeGroup returns a generator of 𝔽ᵣˣ
@@ -289,18 +283,6 @@ func (d *Domain) preComputeTwiddles() {
 		d.cosetTableInvBitReversed = make([]koalabear.Element, d.Cardinality)
 		copy(d.cosetTableInvBitReversed, d.cosetTableInv)
 		utils.BitReverse(d.cosetTableInvBitReversed)
-
-		// Pre-compute cosetTableInv * CardinalityInv to merge two FFTInverse
-		// passes into one (Plonky3 "scaled butterfly" pattern).
-		d.cosetTableInvScaled = make([]koalabear.Element, d.Cardinality)
-		copy(d.cosetTableInvScaled, d.cosetTableInv)
-		v := koalabear.Vector(d.cosetTableInvScaled)
-		v.ScalarMul(v, &d.CardinalityInv)
-
-		d.cosetTableInvScaledBitReversed = make([]koalabear.Element, d.Cardinality)
-		copy(d.cosetTableInvScaledBitReversed, d.cosetTableInvBitReversed)
-		v = koalabear.Vector(d.cosetTableInvScaledBitReversed)
-		v.ScalarMul(v, &d.CardinalityInv)
 	}
 }
 
