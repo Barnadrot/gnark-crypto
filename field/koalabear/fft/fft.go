@@ -464,11 +464,11 @@ func kerDITNP_1024(a []koalabear.Element, twiddles [][]koalabear.Element, stage 
 // overhead (~63 function calls per FFT). For SIS with logTwoDegree=6, this
 // kernel is called 32768 times per benchmark iteration.
 func kerDIFNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
-	// Stage 0: m=32 (AVX-512 eligible)
-	innerDIFWithTwiddles(a[:64], twiddles[stage+0], 0, 32, 32)
-	// Stage 1: m=16 (AVX-512 eligible)
+	// Stage 0: m=32 — call AVX-512 directly, skip dispatch check
+	innerDIFWithTwiddles_avx512(&a[0], &twiddles[stage+0][0], 0, 32, 32)
+	// Stage 1: m=16 — call AVX-512 directly
 	for offset := 0; offset < 64; offset += 32 {
-		innerDIFWithTwiddles(a[offset:offset+32], twiddles[stage+1], 0, 16, 16)
+		innerDIFWithTwiddles_avx512(&a[offset], &twiddles[stage+1][0], 0, 16, 16)
 	}
 	// Stages 2-4 inlined: avoids innerDIFWithTwiddlesGeneric function call overhead,
 	// Vector type conversion, and Vector.Mul dispatch (AVX-512 check on <16 elements).
@@ -555,12 +555,12 @@ func kerDITNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage in
 			}
 		}
 	}
-	// Stage 1: m=16 (AVX-512 eligible)
+	// Stage 1: m=16 — call AVX-512 directly
 	for offset := 0; offset < 64; offset += 32 {
-		innerDITWithTwiddles(a[offset:offset+32], twiddles[stage+1], 0, 16, 16)
+		innerDITWithTwiddles_avx512(&a[offset], &twiddles[stage+1][0], 0, 16, 16)
 	}
-	// Stage 0: m=32 (AVX-512 eligible)
-	innerDITWithTwiddles(a[:64], twiddles[stage+0], 0, 32, 32)
+	// Stage 0: m=32 — call AVX-512 directly
+	innerDITWithTwiddles_avx512(&a[0], &twiddles[stage+0][0], 0, 32, 32)
 }
 
 // kerDIFNP_128 is an unrolled 128-element DIF kernel.
