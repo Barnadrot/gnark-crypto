@@ -526,12 +526,16 @@ func kerDIFNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage in
 		}
 	}
 	{
-		// Stage 4: m=2 (DIF: all butterflies first, then multiply)
-		tw := twiddles[stage+4]
-		for offset := 0; offset < 64; offset += 4 {
-			koalabear.Butterfly(&a[offset], &a[offset+2])
-			koalabear.Butterfly(&a[offset+1], &a[offset+3])
-			a[offset+3].Mul(&a[offset+3], &tw[1])
+		// Stage 4: m=2, 2x unrolled (DIF: all butterflies first, then multiply)
+		tw1 := twiddles[stage+4][1]
+		for offset := 0; offset < 64; offset += 8 {
+			o1, o2 := offset, offset+4
+			koalabear.Butterfly(&a[o1], &a[o1+2])
+			koalabear.Butterfly(&a[o2], &a[o2+2])
+			koalabear.Butterfly(&a[o1+1], &a[o1+3])
+			koalabear.Butterfly(&a[o2+1], &a[o2+3])
+			a[o1+3].Mul(&a[o1+3], &tw1)
+			a[o2+3].Mul(&a[o2+3], &tw1)
 		}
 	}
 	// Stage 5: m=1 (butterfly only)
@@ -548,12 +552,16 @@ func kerDITNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage in
 	}
 	// Stages 4-2 inlined (DIT: multiply first, then butterfly)
 	{
-		// Stage 4: m=2 (DIT: multiply first, then all butterflies)
-		tw := twiddles[stage+4]
-		for offset := 0; offset < 64; offset += 4 {
-			a[offset+3].Mul(&a[offset+3], &tw[1])
-			koalabear.Butterfly(&a[offset], &a[offset+2])
-			koalabear.Butterfly(&a[offset+1], &a[offset+3])
+		// Stage 4: m=2, 2x unrolled (DIT: multiply first, then butterfly)
+		tw1 := twiddles[stage+4][1]
+		for offset := 0; offset < 64; offset += 8 {
+			o1, o2 := offset, offset+4
+			a[o1+3].Mul(&a[o1+3], &tw1)
+			a[o2+3].Mul(&a[o2+3], &tw1)
+			koalabear.Butterfly(&a[o1], &a[o1+2])
+			koalabear.Butterfly(&a[o2], &a[o2+2])
+			koalabear.Butterfly(&a[o1+1], &a[o1+3])
+			koalabear.Butterfly(&a[o2+1], &a[o2+3])
 		}
 	}
 	{
