@@ -21,12 +21,17 @@ type fftConfig struct {
 	nbTasks int
 }
 
+// Cached option closures to avoid per-call heap allocation.
+// These are used by OnCoset() and WithNbTasks(1) to return the same
+// closure each time instead of creating a new one.
+var (
+	cachedOnCoset  Option = func(opt fftConfig) fftConfig { opt.coset = true; return opt }
+	cachedNbTasks1 Option = func(opt fftConfig) fftConfig { opt.nbTasks = 1; return opt }
+)
+
 // OnCoset if provided, FFT(a) returns the evaluation of a on a coset.
 func OnCoset() Option {
-	return func(opt fftConfig) fftConfig {
-		opt.coset = true
-		return opt
-	}
+	return cachedOnCoset
 }
 
 // WithNbTasks sets the max number of task (go routine) to spawn. Must be between 1 and 512.
@@ -35,6 +40,9 @@ func WithNbTasks(nbTasks int) Option {
 		nbTasks = 1
 	} else if nbTasks > 512 {
 		nbTasks = 512
+	}
+	if nbTasks == 1 {
+		return cachedNbTasks1
 	}
 	return func(opt fftConfig) fftConfig {
 		opt.nbTasks = nbTasks
