@@ -93,13 +93,28 @@ func (domain *Domain) FFT(a []koalabear.Element, decimation Decimation, opts ...
 		} // else, we don't need twiddles
 	}
 
-	switch decimation {
-	case DIF:
-		difFFT(a, domain.Generator, twiddles, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
-	case DIT:
-		ditFFT(a, domain.Generator, twiddles, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
-	default:
-		panic("not implemented")
+	// Fast path: skip difFFT/ditFFT dispatch for known small kernel sizes.
+	n := len(a)
+	if twiddlesStartStage == 0 && (n == 64 || n == 128) {
+		switch {
+		case n == 64 && decimation == DIF:
+			kerDIFNP_64(a, twiddles, 0)
+		case n == 64 && decimation == DIT:
+			kerDITNP_64(a, twiddles, 0)
+		case n == 128 && decimation == DIF:
+			kerDIFNP_128(a, twiddles, 0)
+		case n == 128 && decimation == DIT:
+			kerDITNP_128(a, twiddles, 0)
+		}
+	} else {
+		switch decimation {
+		case DIF:
+			difFFT(a, domain.Generator, twiddles, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
+		case DIT:
+			ditFFT(a, domain.Generator, twiddles, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
+		default:
+			panic("not implemented")
+		}
 	}
 }
 
@@ -131,13 +146,27 @@ func (domain *Domain) FFTInverse(a []koalabear.Element, decimation Decimation, o
 		} // else, we don't need twiddles
 	}
 
-	switch decimation {
-	case DIF:
-		difFFT(a, domain.GeneratorInv, twiddlesInv, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
-	case DIT:
-		ditFFT(a, domain.GeneratorInv, twiddlesInv, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
-	default:
-		panic("not implemented")
+	n := len(a)
+	if twiddlesStartStage == 0 && (n == 64 || n == 128) {
+		switch {
+		case n == 64 && decimation == DIF:
+			kerDIFNP_64(a, twiddlesInv, 0)
+		case n == 64 && decimation == DIT:
+			kerDITNP_64(a, twiddlesInv, 0)
+		case n == 128 && decimation == DIF:
+			kerDIFNP_128(a, twiddlesInv, 0)
+		case n == 128 && decimation == DIT:
+			kerDITNP_128(a, twiddlesInv, 0)
+		}
+	} else {
+		switch decimation {
+		case DIF:
+			difFFT(a, domain.GeneratorInv, twiddlesInv, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
+		case DIT:
+			ditFFT(a, domain.GeneratorInv, twiddlesInv, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
+		default:
+			panic("not implemented")
+		}
 	}
 
 	// scale by CardinalityInv
