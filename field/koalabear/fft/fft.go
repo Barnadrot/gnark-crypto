@@ -490,27 +490,39 @@ func kerDIFNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage in
 	// Vector type conversion, and Vector.Mul dispatch (AVX-512 check on <16 elements).
 	{
 		// Stage 2: m=8, 2x unrolled for ILP across Montgomery multiply chains.
-		tw := twiddles[stage+2]
-		// Process 2 blocks at a time (0,16 and 16,32 then 32,48 and 48,64)
+		// Preload twiddles into locals to avoid repeated slice bounds checks
+		// and encourage register residency.
+		tw2 := twiddles[stage+2]
+		t1, t2, t3, t4, t5, t6, t7 := tw2[1], tw2[2], tw2[3], tw2[4], tw2[5], tw2[6], tw2[7]
 		for offset := 0; offset < 64; offset += 32 {
 			o1, o2 := offset, offset+16
-			// All butterflies first (both blocks)
 			koalabear.Butterfly(&a[o1], &a[o1+8])
 			koalabear.Butterfly(&a[o2], &a[o2+8])
 			for i := 1; i < 8; i++ {
 				koalabear.Butterfly(&a[o1+i], &a[o1+i+8])
 				koalabear.Butterfly(&a[o2+i], &a[o2+i+8])
 			}
-			// Interleaved twiddle multiplies — two independent chains for ILP
-			for i := 1; i < 8; i++ {
-				a[o1+i+8].Mul(&a[o1+i+8], &tw[i])
-				a[o2+i+8].Mul(&a[o2+i+8], &tw[i])
-			}
+			// Fully unrolled twiddle multiplies — no loop, no bounds checks.
+			a[o1+9].Mul(&a[o1+9], &t1)
+			a[o2+9].Mul(&a[o2+9], &t1)
+			a[o1+10].Mul(&a[o1+10], &t2)
+			a[o2+10].Mul(&a[o2+10], &t2)
+			a[o1+11].Mul(&a[o1+11], &t3)
+			a[o2+11].Mul(&a[o2+11], &t3)
+			a[o1+12].Mul(&a[o1+12], &t4)
+			a[o2+12].Mul(&a[o2+12], &t4)
+			a[o1+13].Mul(&a[o1+13], &t5)
+			a[o2+13].Mul(&a[o2+13], &t5)
+			a[o1+14].Mul(&a[o1+14], &t6)
+			a[o2+14].Mul(&a[o2+14], &t6)
+			a[o1+15].Mul(&a[o1+15], &t7)
+			a[o2+15].Mul(&a[o2+15], &t7)
 		}
 	}
 	{
-		// Stage 3: m=4, 2x unrolled
-		tw := twiddles[stage+3]
+		// Stage 3: m=4, 2x unrolled with preloaded twiddles.
+		tw3 := twiddles[stage+3]
+		s1, s2, s3 := tw3[1], tw3[2], tw3[3]
 		for offset := 0; offset < 64; offset += 16 {
 			o1, o2 := offset, offset+8
 			koalabear.Butterfly(&a[o1], &a[o1+4])
@@ -519,10 +531,12 @@ func kerDIFNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage in
 				koalabear.Butterfly(&a[o1+i], &a[o1+i+4])
 				koalabear.Butterfly(&a[o2+i], &a[o2+i+4])
 			}
-			for i := 1; i < 4; i++ {
-				a[o1+i+4].Mul(&a[o1+i+4], &tw[i])
-				a[o2+i+4].Mul(&a[o2+i+4], &tw[i])
-			}
+			a[o1+5].Mul(&a[o1+5], &s1)
+			a[o2+5].Mul(&a[o2+5], &s1)
+			a[o1+6].Mul(&a[o1+6], &s2)
+			a[o2+6].Mul(&a[o2+6], &s2)
+			a[o1+7].Mul(&a[o1+7], &s3)
+			a[o2+7].Mul(&a[o2+7], &s3)
 		}
 	}
 	{
@@ -557,14 +571,17 @@ func kerDITNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage in
 		}
 	}
 	{
-		// Stage 3: m=4, 2x unrolled (DIT: multiply first, then butterfly)
-		tw := twiddles[stage+3]
+		// Stage 3: m=4, 2x unrolled with preloaded twiddles (DIT: multiply first, then butterfly)
+		tw3 := twiddles[stage+3]
+		s1, s2, s3 := tw3[1], tw3[2], tw3[3]
 		for offset := 0; offset < 64; offset += 16 {
 			o1, o2 := offset, offset+8
-			for i := 1; i < 4; i++ {
-				a[o1+i+4].Mul(&a[o1+i+4], &tw[i])
-				a[o2+i+4].Mul(&a[o2+i+4], &tw[i])
-			}
+			a[o1+5].Mul(&a[o1+5], &s1)
+			a[o2+5].Mul(&a[o2+5], &s1)
+			a[o1+6].Mul(&a[o1+6], &s2)
+			a[o2+6].Mul(&a[o2+6], &s2)
+			a[o1+7].Mul(&a[o1+7], &s3)
+			a[o2+7].Mul(&a[o2+7], &s3)
 			koalabear.Butterfly(&a[o1], &a[o1+4])
 			koalabear.Butterfly(&a[o2], &a[o2+4])
 			for i := 1; i < 4; i++ {
@@ -574,14 +591,25 @@ func kerDITNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage in
 		}
 	}
 	{
-		// Stage 2: m=8, 2x unrolled (DIT: multiply first, then butterfly)
-		tw := twiddles[stage+2]
+		// Stage 2: m=8, 2x unrolled with preloaded twiddles (DIT: multiply first, then butterfly)
+		tw2 := twiddles[stage+2]
+		t1, t2, t3, t4, t5, t6, t7 := tw2[1], tw2[2], tw2[3], tw2[4], tw2[5], tw2[6], tw2[7]
 		for offset := 0; offset < 64; offset += 32 {
 			o1, o2 := offset, offset+16
-			for i := 1; i < 8; i++ {
-				a[o1+i+8].Mul(&a[o1+i+8], &tw[i])
-				a[o2+i+8].Mul(&a[o2+i+8], &tw[i])
-			}
+			a[o1+9].Mul(&a[o1+9], &t1)
+			a[o2+9].Mul(&a[o2+9], &t1)
+			a[o1+10].Mul(&a[o1+10], &t2)
+			a[o2+10].Mul(&a[o2+10], &t2)
+			a[o1+11].Mul(&a[o1+11], &t3)
+			a[o2+11].Mul(&a[o2+11], &t3)
+			a[o1+12].Mul(&a[o1+12], &t4)
+			a[o2+12].Mul(&a[o2+12], &t4)
+			a[o1+13].Mul(&a[o1+13], &t5)
+			a[o2+13].Mul(&a[o2+13], &t5)
+			a[o1+14].Mul(&a[o1+14], &t6)
+			a[o2+14].Mul(&a[o2+14], &t6)
+			a[o1+15].Mul(&a[o1+15], &t7)
+			a[o2+15].Mul(&a[o2+15], &t7)
 			koalabear.Butterfly(&a[o1], &a[o1+8])
 			koalabear.Butterfly(&a[o2], &a[o2+8])
 			for i := 1; i < 8; i++ {
