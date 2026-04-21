@@ -526,34 +526,50 @@ func kerDIFNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage in
 		}
 	}
 	{
-		// Stage 4: m=2 (DIF: all butterflies first, then multiply)
-		tw := twiddles[stage+4]
-		for offset := 0; offset < 64; offset += 4 {
-			koalabear.Butterfly(&a[offset], &a[offset+2])
-			koalabear.Butterfly(&a[offset+1], &a[offset+3])
-			a[offset+3].Mul(&a[offset+3], &tw[1])
+		// Stages 4+5 fused: process both in one pass per 4-element block.
+		// Stage 4 (m=2): butterfly pairs at stride 2, twiddle multiply on a[3].
+		// Stage 5 (m=1): butterfly adjacent pairs.
+		// Fusing keeps the same 4 elements in registers across both stages.
+		tw1 := twiddles[stage+4][1]
+		for offset := 0; offset < 64; offset += 8 {
+			o1, o2 := offset, offset+4
+			// Stage 4 butterflies
+			koalabear.Butterfly(&a[o1], &a[o1+2])
+			koalabear.Butterfly(&a[o2], &a[o2+2])
+			koalabear.Butterfly(&a[o1+1], &a[o1+3])
+			koalabear.Butterfly(&a[o2+1], &a[o2+3])
+			// Stage 4 twiddle multiply
+			a[o1+3].Mul(&a[o1+3], &tw1)
+			a[o2+3].Mul(&a[o2+3], &tw1)
+			// Stage 5 butterflies (depend on stage 4 output)
+			koalabear.Butterfly(&a[o1], &a[o1+1])
+			koalabear.Butterfly(&a[o2], &a[o2+1])
+			koalabear.Butterfly(&a[o1+2], &a[o1+3])
+			koalabear.Butterfly(&a[o2+2], &a[o2+3])
 		}
-	}
-	// Stage 5: m=1 (butterfly only)
-	for offset := 0; offset < 64; offset += 2 {
-		koalabear.Butterfly(&a[offset], &a[offset+1])
 	}
 }
 
 // kerDITNP_64 is the DIT counterpart of kerDIFNP_64 (stages in reverse order).
 func kerDITNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
-	// Stage 5: m=1 (butterfly only)
-	for offset := 0; offset < 64; offset += 2 {
-		koalabear.Butterfly(&a[offset], &a[offset+1])
-	}
-	// Stages 4-2 inlined (DIT: multiply first, then butterfly)
+	// Stages 5+4 fused (DIT order: stage 5 first, then stage 4).
 	{
-		// Stage 4: m=2 (DIT: multiply first, then all butterflies)
-		tw := twiddles[stage+4]
-		for offset := 0; offset < 64; offset += 4 {
-			a[offset+3].Mul(&a[offset+3], &tw[1])
-			koalabear.Butterfly(&a[offset], &a[offset+2])
-			koalabear.Butterfly(&a[offset+1], &a[offset+3])
+		tw1 := twiddles[stage+4][1]
+		for offset := 0; offset < 64; offset += 8 {
+			o1, o2 := offset, offset+4
+			// Stage 5 butterflies (DIT: these come first)
+			koalabear.Butterfly(&a[o1], &a[o1+1])
+			koalabear.Butterfly(&a[o2], &a[o2+1])
+			koalabear.Butterfly(&a[o1+2], &a[o1+3])
+			koalabear.Butterfly(&a[o2+2], &a[o2+3])
+			// Stage 4 twiddle multiply (DIT: multiply before butterfly)
+			a[o1+3].Mul(&a[o1+3], &tw1)
+			a[o2+3].Mul(&a[o2+3], &tw1)
+			// Stage 4 butterflies
+			koalabear.Butterfly(&a[o1], &a[o1+2])
+			koalabear.Butterfly(&a[o2], &a[o2+2])
+			koalabear.Butterfly(&a[o1+1], &a[o1+3])
+			koalabear.Butterfly(&a[o2+1], &a[o2+3])
 		}
 	}
 	{
