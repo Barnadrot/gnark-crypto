@@ -283,9 +283,9 @@ func (vi *VectorIterator) Next() (koalabear.Element, bool) {
 // LimbIterator iterates over a stream of field elements, limb by limb.
 type LimbIterator struct {
 	it       ElementIterator
-	val      uint32 // element in standard (non-Montgomery) form
-	j        int    // byte position within current element (0..3)
-	limbSize int    // 1 or 2 bytes per limb
+	buf      [koalabear.Bytes]byte
+	j        int // position in buf
+	limbSize int // 1 or 2 bytes per limb
 }
 
 // NewLimbIterator creates a new LimbIterator
@@ -304,8 +304,8 @@ func NewLimbIterator(it ElementIterator, limbSize int) *LimbIterator {
 }
 
 // NextLimb returns the next limb of the vector.
-// Extracts limbs directly from the uint32 via bit shifts, avoiding
-// the PutElement byte serialization + Uint16 deserialization overhead.
+// Uses a branch on limbSize instead of an indirect function pointer call
+// to avoid the ~3-5 cycle overhead per indirect call.
 func (vr *LimbIterator) NextLimb() (uint32, bool) {
 	if vr.j >= koalabear.Bytes {
 		next, ok := vr.it.Next()
@@ -313,14 +313,16 @@ func (vr *LimbIterator) NextLimb() (uint32, bool) {
 			return 0, false
 		}
 		vr.j = 0
-		vr.val = next.ToRegularUint32()
+		koalabear.LittleEndian.PutElement(&vr.buf, next)
 	}
-	shift := uint(vr.j) * 8
-	vr.j += vr.limbSize
 	if vr.limbSize == 2 {
-		return (vr.val >> shift) & 0xFFFF, true
+		r := uint32(binary.LittleEndian.Uint16(vr.buf[vr.j:]))
+		vr.j += 2
+		return r, true
 	}
-	return (vr.val >> shift) & 0xFF, true
+	r := uint32(vr.buf[vr.j])
+	vr.j++
+	return r, true
 }
 
 // Reset resets the iterator with a new ElementIterator.
@@ -329,3 +331,14 @@ func (vr *LimbIterator) Reset(it ElementIterator) {
 	vr.j = koalabear.Bytes
 }
 
+func nextUint8(buf []byte, pos *int) uint32 {
+	r := uint32(buf[*pos])
+	*pos++
+	return r
+}
+
+func nextUint16(buf []byte, pos *int) uint32 {
+	r := uint32(binary.LittleEndian.Uint16(buf[*pos:]))
+	*pos += 2
+	return r
+}
