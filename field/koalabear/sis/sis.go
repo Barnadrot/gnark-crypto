@@ -232,8 +232,8 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k, kz koalabear.Vector, polId in
 	// we compute k * r.Ag[polId] in ℤ_{p}[X]/Xᵈ+1.
 	// k and r.Ag[polId] are in evaluation form on √(g) * <g>
 	// we accumulate the result in res; the FFT inverse is done once every multiplications are done.
-	k.Mul(k, koalabear.Vector(r.Ag[polId]))
-	res.Add(res, k)
+	// Fused multiply-accumulate: res[i] += k[i] * Ag[i] in one pass.
+	res.MulAddAssign(k, koalabear.Vector(r.Ag[polId]))
 }
 
 func deriveRandomElementFromSeed(seed, i, j int64) koalabear.Element {
