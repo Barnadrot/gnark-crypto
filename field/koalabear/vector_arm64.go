@@ -186,7 +186,3 @@ func (vector *Vector) Mul(a, b Vector) {
 		mulVecGeneric((*vector)[start:], a[start:], b[start:])
 	}
 }
-
-func (vector *Vector) MulAddAssign(a, b Vector) {
-	mulAddAssignVecGeneric(*vector, a, b)
-}

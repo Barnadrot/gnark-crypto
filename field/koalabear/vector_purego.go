@@ -43,7 +43,3 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 func (vector *Vector) Mul(a, b Vector) {
 	mulVecGeneric(*vector, a, b)
 }
-
-func (vector *Vector) MulAddAssign(a, b Vector) {
-	mulAddAssignVecGeneric(*vector, a, b)
-}

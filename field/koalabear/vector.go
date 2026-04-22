@@ -370,20 +370,6 @@ func sumVecGeneric(res *Element, a Vector) {
 	}
 }
 
-// mulAddAssignVecGeneric computes res[i] += a[i] * b[i] for each i.
-// This fuses a vector multiply and vector add into a single pass,
-// halving memory bandwidth compared to separate Mul + Add calls.
-func mulAddAssignVecGeneric(res, a, b Vector) {
-	if len(a) != len(b) || len(a) != len(res) {
-		panic("vector.MulAddAssign: vectors don't have the same length")
-	}
-	var tmp Element
-	for i := range len(a) {
-		tmp.Mul(&a[i], &b[i])
-		res[i].Add(&res[i], &tmp)
-	}
-}
-
 func innerProductVecGeneric(res *Element, a, b Vector) {
 	if len(a) != len(b) {
 		panic("vector.InnerProduct: vectors don't have the same length")

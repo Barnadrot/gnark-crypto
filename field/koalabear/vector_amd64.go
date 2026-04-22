@@ -191,15 +191,6 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 
 // Mul multiplies two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
-// MulAddAssign computes vector[i] += a[i] * b[i] for each i.
-// Fuses a vector multiply and add into a single pass.
-func (vector *Vector) MulAddAssign(a, b Vector) {
-	// No dedicated AVX-512 assembly for this operation yet;
-	// the fused generic loop still wins over separate Mul+Add by halving
-	// the memory traffic on the vector and a arrays.
-	mulAddAssignVecGeneric(*vector, a, b)
-}
-
 func (vector *Vector) Mul(a, b Vector) {
 	if !cpu.SupportAVX512 {
 		// call mulVecGeneric
