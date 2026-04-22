@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"math/bits"
+	"sync"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/fft"
@@ -44,7 +45,8 @@ type RSis struct {
 
 	maxNbElementsToHash int
 
-	kz koalabear.Vector // zeroes used to zeroize the limbs buffer faster.
+	kz    koalabear.Vector // zeroes used to zeroize the limbs buffer faster.
+	kPool sync.Pool        // pool of reusable k buffers ([]koalabear.Element of size Degree)
 }
 
 // NewRSis creates an instance of RSis.
@@ -183,12 +185,19 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 		}
 		sisUnshuffle_avx512(res)
 	} else {
-		// inner hash
-		k := make([]koalabear.Element, r.Degree)
+		// inner hash — reuse k buffer from pool to avoid per-call allocation
+		kIface := r.kPool.Get()
+		var k koalabear.Vector
+		if kIface != nil {
+			k = kIface.(koalabear.Vector)
+		} else {
+			k = make(koalabear.Vector, r.Degree)
+		}
 		it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
 		for i := range len(r.Ag) {
 			r.InnerHash(it, res, k, r.kz, i, mask)
 		}
+		r.kPool.Put(k)
 	}
 
 	// reduces mod Xᵈ+1
