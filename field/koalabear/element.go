@@ -345,6 +345,13 @@ func (z *Element) fromMont() *Element {
 	return z
 }
 
+// ToRegularUint32 converts z from Montgomery representation to standard
+// representation and returns the value as a raw uint32. This avoids the
+// overhead of serializing through a byte buffer.
+func (z *Element) ToRegularUint32() uint32 {
+	return montReduce(uint64(z[0]))
+}
+
 // Add z = x + y (mod q)
 func (z *Element) Add(x, y *Element) *Element {
 
